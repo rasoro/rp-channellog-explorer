@@ -7,11 +7,24 @@ require (
 	github.com/charmbracelet/lipgloss v0.4.0
 )
 
-require github.com/atotto/clipboard v0.1.4 // indirect
+require (
+	github.com/atotto/clipboard v0.1.4 // indirect
+	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
+	github.com/jackc/pgconn v1.12.1 // indirect
+	github.com/jackc/pgio v1.0.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgproto3/v2 v2.3.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
+	github.com/jackc/pgtype v1.11.0 // indirect
+	github.com/jackc/puddle v1.2.1 // indirect
+	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97 // indirect
+	golang.org/x/text v0.3.7 // indirect
+)
 
 require (
 	github.com/charmbracelet/bubbles v0.10.3
 	github.com/containerd/console v1.0.3 // indirect
+	github.com/jackc/pgx/v4 v4.16.1
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
