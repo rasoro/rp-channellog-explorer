@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -11,14 +13,15 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/rasoro/rp-channellog-explorer/internal/db"
 	"github.com/rasoro/rp-channellog-explorer/ui/colors"
 	"github.com/rasoro/rp-channellog-explorer/ui/components"
 	"golang.org/x/term"
 )
 
-func NewProgram() *tea.Program {
+func NewProgram(dbq *db.Queries) *tea.Program {
 	return tea.NewProgram(
-		initialModel(),
+		initialModel(dbq),
 		tea.WithAltScreen(),
 	)
 }
@@ -53,10 +56,11 @@ type model struct {
 	state            State
 	searchingState   searchingState
 	searchSpinner    spinner.Model
+	db               *db.Queries
 	err              error
 }
 
-var logData *string
+var logData interface{}
 
 var (
 	focusedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#00DED2"))
@@ -71,7 +75,7 @@ var (
 	void          = ""
 )
 
-func initialModel() model {
+func initialModel(db *db.Queries) model {
 	paramInputs := make([]textinput.Model, 0)
 
 	ci := textinput.NewModel()
@@ -109,6 +113,7 @@ func initialModel() model {
 		paramInputs:      paramInputs,
 		state:            PromptParams,
 		searchSpinner:    s,
+		db:               db,
 	}
 }
 
@@ -136,6 +141,9 @@ func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			return m, tea.Quit
+		case tea.KeyCtrlP:
+			m.state = PromptParams
+			return m, textinput.Blink
 		}
 	}
 	return m, nil
@@ -155,19 +163,36 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	switch m.searchingState {
 	case searchInit:
 		m.searchingState = searchInProgress
-		go func() {
-			time.Sleep(time.Second * 2)
-			result := "{}"
-			logData = &result
-		}()
+		go func(m model) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			ch, err := m.db.GetChannel(ctx, m.uuidChannelInput.Value())
+			if err != nil {
+				logData = errors.New("Error to get channel")
+				return
+			}
+			clogs, err := m.db.GetChannelLogFromChannelID(ctx, ch.ID)
+			if err != nil {
+				logData = errors.New("Error to get channel logs")
+				return
+			}
+			logData = clogs
+		}(m)
 	case searchInProgress:
 		if logData != nil {
-			m.searchingState = searchSuccess
+			switch logData.(type) {
+			case error:
+				m.searchingState = searchErrored
+			case []db.ChannelsChannellog:
+				m.searchingState = searchSuccess
+			}
 		}
 	case searchSuccess:
 		m.state = Listing
 		return m, textinput.Blink
 	case searchErrored:
+		// TODO: show error message
+		m.state = PromptParams
 		return m, nil
 	}
 	return m, cmd
@@ -274,6 +299,8 @@ func (m model) View() string {
 	}
 
 	b.WriteString(searchForm)
+
+	// TODO: show loglist
 
 	_, physicalHeight, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
