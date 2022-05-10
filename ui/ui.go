@@ -92,6 +92,8 @@ var (
 	listPanel  = ""
 )
 
+const useHighPerformanceRender = false
+
 func initialModel(db *db.Queries) model {
 	paramInputs := make([]textinput.Model, 0)
 
@@ -222,8 +224,14 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 				log.Fatal(logData)
 			case []db.ChannelsChannellog:
 				items := []list.Item{}
-				for _, cl := range logData.([]db.ChannelsChannellog) {
+				for i, cl := range logData.([]db.ChannelsChannellog) {
 					createdOn := cl.CreatedOn.Format("2006-01-02 15:04:05")
+					var marker string
+					if cl.IsError {
+						marker = components.ErrorMark
+					} else {
+						marker = components.SuccessMark
+					}
 					items = append(items, item{
 						desc: fmt.Sprintf(
 							"%s | %s",
@@ -231,9 +239,11 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 							cl.Description,
 						),
 						title: fmt.Sprintf(
-							"[%v] %v",
+							"#%v %v - %v [%v] %v",
+							i+1,
+							marker,
+							cl.ResponseStatus.Int32,
 							cl.Method.String,
-							// TruncateString(cl.Url.String, 40),
 							cl.Url.String,
 						),
 					})
