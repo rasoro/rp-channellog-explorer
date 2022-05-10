@@ -48,18 +48,15 @@ const (
 type errMsg error
 
 type model struct {
-	focusIndex       int
-	cursorMode       textinput.CursorMode
-	uuidChannelInput textinput.Model
-	afterInput       textinput.Model
-	beforeInput      textinput.Model
-	paramInputs      []textinput.Model
-	state            State
-	searchingState   searchingState
-	searchSpinner    spinner.Model
-	logList          list.Model
-	db               *db.Queries
-	err              error
+	focusIndex     int
+	cursorMode     textinput.CursorMode
+	paramInputs    []textinput.Model
+	state          State
+	searchingState searchingState
+	searchSpinner  spinner.Model
+	logList        list.Model
+	db             *db.Queries
+	err            error
 }
 
 var logData interface{}
@@ -110,7 +107,7 @@ func initialModel(db *db.Queries) model {
 	ci.CursorStyle = cursorStyle
 	ci.PromptStyle = focusedStyle
 	ci.TextStyle = focusedStyle
-	ci.SetValue("cac4a1fe-0559-423e-97d6-f4a24f8d98cf")
+	// ci.SetValue("cac4a1fe-0559-423e-97d6-f4a24f8d98cf")
 	paramInputs = append(paramInputs, ci)
 
 	ai := textinput.NewModel()
@@ -135,16 +132,14 @@ func initialModel(db *db.Queries) model {
 
 	logList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
 	logList.Title = "Channel Logs"
+	logList.SetShowHelp(false)
 
 	return model{
-		uuidChannelInput: ci,
-		afterInput:       ai,
-		beforeInput:      bi,
-		paramInputs:      paramInputs,
-		state:            PromptParams,
-		searchSpinner:    s,
-		db:               db,
-		logList:          logList,
+		paramInputs:   paramInputs,
+		state:         PromptParams,
+		searchSpinner: s,
+		db:            db,
+		logList:       logList,
 	}
 }
 
@@ -206,8 +201,7 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 			time.Sleep(time.Second * 2)
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			log.Println(m.uuidChannelInput.Value())
-			ch, err := m.db.GetChannel(ctx, m.uuidChannelInput.Value())
+			ch, err := m.db.GetChannel(ctx, m.paramInputs[0].Value())
 			if err != nil {
 				logData = fmt.Errorf("Error to get channel: %s", err)
 				return
