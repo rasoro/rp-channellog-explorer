@@ -18,12 +18,13 @@ func main() {
 }
 
 func execute() error {
-	dbPool, err := postgresql.NewPostgreSQL()
+	dbConn, err := postgresql.NewPostgreSQL()
 	if err != nil {
 		log.Fatal(err)
+		return err
 	}
 
-	dbase := db.New(dbPool)
+	dbase := db.New(dbConn)
 	p := ui.NewProgram(dbase)
 	if err := p.Start(); err != nil {
 		return err

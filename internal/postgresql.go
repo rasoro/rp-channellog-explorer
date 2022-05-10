@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 )
 
-func NewPostgreSQL() (*pgxpool.Pool, error) {
+func NewPostgreSQL() (*sqlx.DB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	dsn := "postgres://temba:temba@localhost/temba?sslmode=disable"
-	return pgxpool.Connect(ctx, dsn)
+	dsn := "postgres://temba:temba@localhost:5432/temba?sslmode=disable"
+	return sqlx.ConnectContext(ctx, "postgres", dsn)
 }

@@ -1,0 +1,9 @@
+version: "1"
+packages: [
+    {
+        "path":"internal/db",
+        "engine":"postgresql",
+        "schema":"internal/query/",
+        "queries":"internal/query/"
+    }
+]
