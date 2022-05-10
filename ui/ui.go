@@ -2,13 +2,14 @@ package ui
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -56,11 +57,13 @@ type model struct {
 	state            State
 	searchingState   searchingState
 	searchSpinner    spinner.Model
+	logList          list.Model
 	db               *db.Queries
 	err              error
 }
 
 var logData interface{}
+var selectedChannel db.ChannelsChannel
 
 var (
 	focusedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#00DED2"))
@@ -75,36 +78,63 @@ var (
 	void          = ""
 )
 
+var (
+	docListStyle = lipgloss.NewStyle().Margin(1, 2)
+)
+
+type item struct {
+	title, desc string
+}
+
+func (i item) Title() string       { return i.title }
+func (i item) Description() string { return i.desc }
+func (i item) FilterValue() string { return i.title }
+
+var (
+	searchForm = ""
+	listPanel  = ""
+)
+
 func initialModel(db *db.Queries) model {
 	paramInputs := make([]textinput.Model, 0)
+
+	nowString := time.Now().Format("2006-01-02") + " 00:00:00"
+	after, _ := time.Parse("2006-01-02 00:00:00", nowString)
+	before := after.AddDate(0, 0, 1).Add(time.Nanosecond * -1)
 
 	ci := textinput.NewModel()
 	ci.Placeholder = "Channel UUID"
 	ci.Focus()
-	ci.CharLimit = 32
-	ci.Width = 32
+	ci.CharLimit = 36
+	ci.Width = 36
 	ci.CursorStyle = cursorStyle
 	ci.PromptStyle = focusedStyle
 	ci.TextStyle = focusedStyle
+	ci.SetValue("cac4a1fe-0559-423e-97d6-f4a24f8d98cf")
 	paramInputs = append(paramInputs, ci)
 
 	ai := textinput.NewModel()
 	ai.Placeholder = "After(yyyy-mm-dd)"
 	ai.CursorStyle = cursorStyle
-	ai.CharLimit = 18
-	ai.Width = 18
+	ai.CharLimit = 19
+	ai.Width = 19
+	ai.SetValue(after.Format("2006-01-02 15:04:05"))
 	paramInputs = append(paramInputs, ai)
 
 	bi := textinput.NewModel()
 	bi.Placeholder = "Before(yyyy-mm-dd)"
 	bi.CursorStyle = cursorStyle
-	bi.CharLimit = 18
-	bi.Width = 18
+	bi.CharLimit = 19
+	bi.Width = 19
+	bi.SetValue(before.Format("2006-01-02 15:04:05"))
 	paramInputs = append(paramInputs, bi)
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Primary))
+
+	logList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	logList.Title = "Channel Logs"
 
 	return model{
 		uuidChannelInput: ci,
@@ -114,6 +144,7 @@ func initialModel(db *db.Queries) model {
 		state:            PromptParams,
 		searchSpinner:    s,
 		db:               db,
+		logList:          logList,
 	}
 }
 
@@ -136,6 +167,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -145,8 +177,15 @@ func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 			m.state = PromptParams
 			return m, textinput.Blink
 		}
+	case tea.WindowSizeMsg:
+		h, v := docListStyle.GetFrameSize()
+		m.logList.SetSize(
+			msg.Width-h,
+			msg.Height-(v*2)-lipgloss.Height(searchForm))
 	}
-	return m, nil
+
+	m.logList, cmd = m.logList.Update(msg)
+	return m, cmd
 }
 
 func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
@@ -164,16 +203,19 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	case searchInit:
 		m.searchingState = searchInProgress
 		go func(m model) {
+			time.Sleep(time.Second * 2)
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
+			log.Println(m.uuidChannelInput.Value())
 			ch, err := m.db.GetChannel(ctx, m.uuidChannelInput.Value())
 			if err != nil {
-				logData = errors.New("Error to get channel")
+				logData = fmt.Errorf("Error to get channel: %s", err)
 				return
 			}
+			selectedChannel = ch
 			clogs, err := m.db.GetChannelLogFromChannelID(ctx, ch.ID)
 			if err != nil {
-				logData = errors.New("Error to get channel logs")
+				logData = fmt.Errorf("Error to get channel logs: %s", err)
 				return
 			}
 			logData = clogs
@@ -183,12 +225,43 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 			switch logData.(type) {
 			case error:
 				m.searchingState = searchErrored
+				log.Fatal(logData)
 			case []db.ChannelsChannellog:
+				items := []list.Item{}
+				for _, cl := range logData.([]db.ChannelsChannellog) {
+					createdOn := cl.CreatedOn.Format("2006-01-02 15:04:05")
+					items = append(items, item{
+						desc: fmt.Sprintf(
+							"%s | %s",
+							createdOn,
+							cl.Description,
+						),
+						title: fmt.Sprintf(
+							"[%v] %v",
+							cl.Method.String,
+							// TruncateString(cl.Url.String, 40),
+							cl.Url.String,
+						),
+					})
+				}
+				// m.logList = list.New(items, list.NewDefaultDelegate(), 0, 0)
+				m.logList.SetItems(items)
+				m.logList.Title = selectedChannel.Name.String
+				// m.logList.Title = "Channel Logs"
 				m.searchingState = searchSuccess
 			}
 		}
 	case searchSuccess:
 		m.state = Listing
+
+		physicalWidth, physicalHeight, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil {
+			log.Fatal(err)
+		}
+		h, v := docListStyle.GetFrameSize()
+		m.logList.SetSize(
+			physicalWidth-h,
+			physicalHeight-(v*2)-lipgloss.Height(searchForm))
 		return m, textinput.Blink
 	case searchErrored:
 		// TODO: show error message
@@ -211,7 +284,6 @@ func updateInputParams(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 
 			// enter while submit buton was focused? loading and search
 			if s == "enter" && m.focusIndex == len(m.paramInputs) {
-				// TODO: change status to loading and search channel logs
 				m.state = Searching
 				m.searchingState = searchInit
 				return m, m.searchSpinner.Tick
@@ -269,19 +341,17 @@ func (m model) View() string {
 		button = &focusedButton
 	}
 
-	searchForm := ""
-
 	if m.state != PromptParams && m.state != Searching {
 		searchForm = lipgloss.JoinHorizontal(
 			lipgloss.Top,
-			components.InputStyle.Copy().Width(35).Render(m.paramInputs[0].View()),
+			components.InputStyle.Copy().Width(m.paramInputs[0].Width+4).Render(m.paramInputs[0].View()),
 			components.InputStyle.Render(m.paramInputs[1].View()),
 			components.InputStyle.Render(m.paramInputs[2].View()),
 		)
 	} else {
 		searchForm = lipgloss.JoinHorizontal(
 			lipgloss.Top,
-			components.InputStyle.Copy().Width(35).Render(m.paramInputs[0].View()),
+			components.InputStyle.Copy().Width(m.paramInputs[0].Width+4).Render(m.paramInputs[0].View()),
 			components.InputStyle.Render(m.paramInputs[1].View()),
 			components.InputStyle.Render(m.paramInputs[2].View()),
 			components.InputStyle.Render(*button),
@@ -291,24 +361,47 @@ func (m model) View() string {
 	if m.state == Searching {
 		searchForm = lipgloss.JoinHorizontal(
 			lipgloss.Center,
-			components.InputStyle.Copy().Width(35).Render(m.paramInputs[0].View()),
+			components.InputStyle.Copy().Width(m.paramInputs[0].Width+4).Render(m.paramInputs[0].View()),
 			components.InputStyle.Render(m.paramInputs[1].View()),
 			components.InputStyle.Render(m.paramInputs[2].View()),
 			fmt.Sprintf("%s Searching", m.searchSpinner.View()),
 		)
 	}
 
-	b.WriteString(searchForm)
-
-	// TODO: show loglist
-
 	_, physicalHeight, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// b.WriteString(cursorModeHelpStyle.Render(m.cursorMode.String()))
-	b.WriteString(strings.Repeat("\n", physicalHeight-lipgloss.Height(b.String())-1))
-	b.WriteString(helpStyle.Render(" ctrl+c to quit"))
+	if m.state == Listing {
+		b.WriteString(
+			lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				lipgloss.JoinVertical(
+					lipgloss.Top,
+					docListStyle.Render(searchForm),
+					docListStyle.Render(m.logList.View()),
+				),
+				// TODO: textpanel
+			),
+		)
+		return b.String()
+	} else {
+		b.WriteString(docListStyle.Render(searchForm))
+		b.WriteString(strings.Repeat("\n", physicalHeight-lipgloss.Height(b.String())-1))
+		b.WriteString(helpStyle.Render(" ctrl+c to quit"))
+	}
 	return b.String()
+}
+
+func TruncateString(str string, length int) string {
+	if length <= 0 {
+		return ""
+	}
+
+	if utf8.RuneCountInString(str) < length {
+		return str
+	}
+
+	return string([]rune(str)[:length])
 }
