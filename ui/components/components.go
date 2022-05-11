@@ -34,4 +34,5 @@ var (
 			Foreground(cerrors).
 			PaddingRight(1).
 			String()
+	DocListStyle = lipgloss.NewStyle().Margin(1, 2)
 )

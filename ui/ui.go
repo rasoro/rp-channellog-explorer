@@ -65,18 +65,6 @@ var logData interface{}
 var selectedChannel db.ChannelsChannel
 
 var (
-	docListStyle = lipgloss.NewStyle().Margin(1, 2)
-)
-
-type item struct {
-	title, desc string
-}
-
-func (i item) Title() string       { return i.title }
-func (i item) Description() string { return i.desc }
-func (i item) FilterValue() string { return i.title }
-
-var (
 	searchForm = ""
 	listPanel  = ""
 )
@@ -208,37 +196,6 @@ func updateInspecting(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return m, tea.Quit
-		case tea.KeyCtrlP:
-			m.state = PromptParams
-			return m, textinput.Blink
-		case tea.KeyEnter:
-			m.state = Inspecting
-			content, ok := logData.([]db.ChannelsChannellog)
-			if !ok {
-				log.Fatal(ok)
-				return m, tea.Quit
-			}
-			m.viewport.SetContent(content[m.logList.Index()].Response.String)
-			return m, textinput.Blink
-		}
-	case tea.WindowSizeMsg:
-		h, v := docListStyle.GetFrameSize()
-		m.logList.SetSize(
-			msg.Width-h,
-			msg.Height-(v*2)-lipgloss.Height(searchForm))
-	}
-
-	m.logList, cmd = m.logList.Update(msg)
-	return m, cmd
-}
-
 func (m model) View() string {
 	if m.err != nil {
 		return m.err.Error()
@@ -293,10 +250,9 @@ func (m model) View() string {
 				lipgloss.Left,
 				lipgloss.JoinVertical(
 					lipgloss.Top,
-					docListStyle.Render(searchForm),
-					docListStyle.Render(m.logList.View()),
+					components.DocListStyle.Render(searchForm),
+					components.DocListStyle.Render(m.logList.View()),
 				),
-				// TODO: textpanel
 			),
 		)
 		return b.String()
@@ -311,7 +267,7 @@ func (m model) View() string {
 			)
 		}
 	} else {
-		b.WriteString(docListStyle.Render(searchForm))
+		b.WriteString(components.DocListStyle.Render(searchForm))
 		b.WriteString(strings.Repeat("\n", physicalHeight-lipgloss.Height(b.String())-1))
 		b.WriteString(helpStyle.Render(" ctrl+c to quit"))
 	}

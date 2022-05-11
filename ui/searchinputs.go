@@ -162,7 +162,7 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		h, v := docListStyle.GetFrameSize()
+		h, v := components.DocListStyle.GetFrameSize()
 		m.logList.SetSize(
 			physicalWidth-h,
 			physicalHeight-(v*2)-lipgloss.Height(searchForm))
