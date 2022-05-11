@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rasoro/rp-channellog-explorer/internal/db"
@@ -27,19 +28,20 @@ func NewProgram(dbq *db.Queries) *tea.Program {
 	)
 }
 
-type State int
-type searchingState int
+type GlobalState int
+type SearchingState int
 
 const (
-	PromptParams State = iota
+	PromptParams GlobalState = iota
 	Searching
 	NotFound
 	Listing
 	Errored
+	Inspecting
 )
 
 const (
-	searchInit searchingState = iota
+	searchInit SearchingState = iota
 	searchInProgress
 	searchSuccess
 	searchErrored
@@ -51,10 +53,13 @@ type model struct {
 	focusIndex     int
 	cursorMode     textinput.CursorMode
 	paramInputs    []textinput.Model
-	state          State
-	searchingState searchingState
+	state          GlobalState
+	searchingState SearchingState
 	searchSpinner  spinner.Model
 	logList        list.Model
+	inspectContent string
+	inspectReady   bool
+	viewport       viewport.Model
 	db             *db.Queries
 	err            error
 }
@@ -156,11 +161,68 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return updateInputParams(msg, m)
 	case Searching:
 		return updateSearching(msg, m)
+	case Inspecting:
+		return updateInspecting(msg, m)
 	case Listing:
 		return updateListing(msg, m)
 	default:
 	}
 	return m, nil
+}
+
+func updateInspecting(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEsc:
+			m.state = Listing
+			return m, nil
+		}
+	case tea.WindowSizeMsg:
+		if !m.inspectReady {
+			m.viewport = viewport.New(msg.Width, msg.Height)
+			m.viewport.YPosition = 0
+			m.viewport.HighPerformanceRendering = useHighPerformanceRender
+			m.viewport.SetContent(m.inspectContent)
+			m.inspectReady = true
+		} else {
+			m.viewport.Width = msg.Width
+			m.viewport.Height = msg.Height
+		}
+
+		if useHighPerformanceRender {
+			cmds = append(cmds, viewport.Sync(m.viewport))
+		}
+	}
+
+	if !m.inspectReady {
+		physicalWidth, physicalHeight, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil {
+			log.Fatal(err)
+		}
+		m.viewport = viewport.New(physicalWidth, physicalHeight)
+		m.viewport.YPosition = 0
+		m.viewport.HighPerformanceRendering = useHighPerformanceRender
+		content, ok := logData.([]db.ChannelsChannellog)
+		if !ok {
+			log.Fatal(ok)
+			return m, tea.Quit
+		}
+		m.viewport.SetContent(content[m.logList.Index()].Response.String)
+		m.inspectReady = true
+		if useHighPerformanceRender {
+			cmds = append(cmds, viewport.Sync(m.viewport))
+		}
+	}
+
+	m.viewport, cmd = m.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+	return m, tea.Batch(cmds...)
 }
 
 func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
@@ -172,6 +234,15 @@ func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case tea.KeyCtrlP:
 			m.state = PromptParams
+			return m, textinput.Blink
+		case tea.KeyEnter:
+			m.state = Inspecting
+			content, ok := logData.([]db.ChannelsChannellog)
+			if !ok {
+				log.Fatal(ok)
+				return m, tea.Quit
+			}
+			m.viewport.SetContent(content[m.logList.Index()].Response.String)
 			return m, textinput.Blink
 		}
 	case tea.WindowSizeMsg:
@@ -279,13 +350,10 @@ func updateInputParams(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "esc":
+		case "ctrl+c":
 			return m, tea.Quit
-		case "ctrl+p":
-			return m, nil
 		case "tab", "shift+tab", "enter", "up", "down":
 			s := msg.String()
-
 			// enter while submit buton was focused? loading and search
 			if s == "enter" && m.focusIndex == len(m.paramInputs) {
 				m.state = Searching
@@ -338,6 +406,11 @@ func (m model) View() string {
 	if m.err != nil {
 		return m.err.Error()
 	}
+	_, physicalHeight, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	var b strings.Builder
 
 	button := &blurredButton
@@ -345,36 +418,36 @@ func (m model) View() string {
 		button = &focusedButton
 	}
 
-	if m.state != PromptParams && m.state != Searching {
-		searchForm = lipgloss.JoinHorizontal(
-			lipgloss.Top,
-			components.InputStyle.Copy().Width(m.paramInputs[0].Width+4).Render(m.paramInputs[0].View()),
-			components.InputStyle.Render(m.paramInputs[1].View()),
-			components.InputStyle.Render(m.paramInputs[2].View()),
-		)
-	} else {
-		searchForm = lipgloss.JoinHorizontal(
-			lipgloss.Top,
-			components.InputStyle.Copy().Width(m.paramInputs[0].Width+4).Render(m.paramInputs[0].View()),
-			components.InputStyle.Render(m.paramInputs[1].View()),
-			components.InputStyle.Render(m.paramInputs[2].View()),
-			components.InputStyle.Render(*button),
-		)
-	}
+	inputChannelUUID := components.InputStyle.Copy().Width(m.paramInputs[0].Width + 4).Render(m.paramInputs[0].View())
+	inputDateAfter := components.InputStyle.Render(m.paramInputs[1].View())
+	inputDateBefore := components.InputStyle.Render(m.paramInputs[2].View())
 
-	if m.state == Searching {
+	switch m.state {
+	case PromptParams:
 		searchForm = lipgloss.JoinHorizontal(
 			lipgloss.Center,
-			components.InputStyle.Copy().Width(m.paramInputs[0].Width+4).Render(m.paramInputs[0].View()),
-			components.InputStyle.Render(m.paramInputs[1].View()),
-			components.InputStyle.Render(m.paramInputs[2].View()),
+			inputChannelUUID,
+			inputDateAfter,
+			inputDateBefore,
+			components.InputStyle.Render(*button),
+		)
+	case Searching:
+		searchForm = lipgloss.JoinHorizontal(
+			lipgloss.Center,
+			inputChannelUUID,
+			inputDateAfter,
+			inputDateBefore,
 			fmt.Sprintf("%s Searching", m.searchSpinner.View()),
 		)
-	}
-
-	_, physicalHeight, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		log.Fatal(err)
+	case Listing:
+		searchForm = lipgloss.JoinHorizontal(
+			lipgloss.Center,
+			inputChannelUUID,
+			inputDateAfter,
+			inputDateBefore,
+		)
+	case Inspecting:
+		searchForm = ""
 	}
 
 	if m.state == Listing {
@@ -390,6 +463,16 @@ func (m model) View() string {
 			),
 		)
 		return b.String()
+	} else if m.state == Inspecting {
+		if !m.inspectReady {
+			b.WriteString(
+				"\n  Initializing...",
+			)
+		} else {
+			b.WriteString(
+				m.viewport.View(),
+			)
+		}
 	} else {
 		b.WriteString(docListStyle.Render(searchForm))
 		b.WriteString(strings.Repeat("\n", physicalHeight-lipgloss.Height(b.String())-1))
