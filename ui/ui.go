@@ -63,7 +63,6 @@ type model struct {
 
 var logData interface{}
 var selectedChannel db.ChannelsChannel
-var currentContent string
 
 var (
 	searchForm = ""

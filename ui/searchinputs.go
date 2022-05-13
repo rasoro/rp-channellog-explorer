@@ -184,7 +184,7 @@ func newUUIDInput() textinput.Model {
 	ci.CursorStyle = cursorStyle
 	ci.PromptStyle = focusedStyle
 	ci.TextStyle = focusedStyle
-	// ci.SetValue("cac4a1fe-0559-423e-97d6-f4a24f8d98cf")
+	ci.SetValue("b2abebe0-e8af-444c-9b8c-ccff91eb4ecc")
 	return ci
 }
 

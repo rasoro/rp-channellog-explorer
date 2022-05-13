@@ -47,7 +47,8 @@ func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 				responseFmtd = err.Error()
 			}
 			ctt := fmt.Sprintf("%s\n\n%s", requestFmtd, responseFmtd)
-			m.viewport.SetContent(ctt)
+			m.inspectContent = ctt
+			m.viewport.SetContent(m.inspectContent)
 			return m, textinput.Blink
 		}
 	case tea.WindowSizeMsg:

@@ -54,7 +54,7 @@ func updateInspecting(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 		m.viewport = viewport.New(physicalWidth, physicalHeight)
 		m.viewport.YPosition = 0
 		m.viewport.HighPerformanceRendering = useHighPerformanceRender
-		m.viewport.SetContent(currentContent)
+		m.viewport.SetContent(m.inspectContent)
 		m.inspectReady = true
 		if useHighPerformanceRender {
 			cmds = append(cmds, viewport.Sync(m.viewport))
@@ -66,7 +66,7 @@ func updateInspecting(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func FormatRequestResponse(r string) (string, error) {
+func FormatRequestResponse2(r string) (string, error) {
 	breakLineIndex := strings.Index(r, "\n\n")
 	if breakLineIndex == -1 {
 		return r, nil
@@ -82,6 +82,21 @@ func FormatRequestResponse(r string) (string, error) {
 		return fmt.Sprintf("%s\n\n%s", topContent, bcfmt), nil
 	}
 	return fmt.Sprintf("%s\n\n%s", topContent, bcfmt), nil
+}
+
+func FormatRequestResponse(r string) (string, error) {
+	r = strings.ReplaceAll(r, `\u00e1`, "á")
+	contents := strings.Split(strings.TrimSpace(r), "\n\n")
+	var btctt string
+	var err error
+	if len(contents) > 1 {
+		cs := strings.TrimSpace(contents[1])
+		btctt, err = JsonPrettyPrint(cs)
+		if err != nil {
+			btctt, err = QueryPrettyPrint(cs)
+		}
+	}
+	return fmt.Sprintf("%s\n\n%s", contents[0], btctt), nil
 }
 
 func JsonPrettyPrint(in string) (string, error) {
