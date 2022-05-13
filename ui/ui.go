@@ -63,6 +63,7 @@ type model struct {
 
 var logData interface{}
 var selectedChannel db.ChannelsChannel
+var currentContent string
 
 var (
 	searchForm = ""
@@ -72,35 +73,16 @@ var (
 func initialModel(db *db.Queries) model {
 	paramInputs := make([]textinput.Model, 0)
 
-	nowString := time.Now().Format("2006-01-02") + " 00:00:00"
-	after, _ := time.Parse("2006-01-02 00:00:00", nowString)
-	before := after.AddDate(0, 0, 1).Add(time.Nanosecond * -1)
+	after := time.Date(2022, time.Month(1), 1, 0, 0, 0, 0, time.UTC)
+	before := time.Now()
 
-	ci := textinput.NewModel()
-	ci.Placeholder = "Channel UUID"
-	ci.Focus()
-	ci.CharLimit = 36
-	ci.Width = 36
-	ci.CursorStyle = cursorStyle
-	ci.PromptStyle = focusedStyle
-	ci.TextStyle = focusedStyle
-	// ci.SetValue("cac4a1fe-0559-423e-97d6-f4a24f8d98cf")
+	ci := newUUIDInput()
 	paramInputs = append(paramInputs, ci)
 
-	ai := textinput.NewModel()
-	ai.Placeholder = "After(yyyy-mm-dd)"
-	ai.CursorStyle = cursorStyle
-	ai.CharLimit = 19
-	ai.Width = 19
-	ai.SetValue(after.Format("2006-01-02 15:04:05"))
+	ai := newAfterDateInput(after)
 	paramInputs = append(paramInputs, ai)
 
-	bi := textinput.NewModel()
-	bi.Placeholder = "Before(yyyy-mm-dd)"
-	bi.CursorStyle = cursorStyle
-	bi.CharLimit = 19
-	bi.Width = 19
-	bi.SetValue(before.Format("2006-01-02 15:04:05"))
+	bi := newBeforeDateInput(before)
 	paramInputs = append(paramInputs, bi)
 
 	s := spinner.New()

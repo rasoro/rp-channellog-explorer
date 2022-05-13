@@ -174,3 +174,36 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	}
 	return m, cmd
 }
+
+func newUUIDInput() textinput.Model {
+	ci := textinput.NewModel()
+	ci.Placeholder = "Channel UUID"
+	ci.Focus()
+	ci.CharLimit = 36
+	ci.Width = 36
+	ci.CursorStyle = cursorStyle
+	ci.PromptStyle = focusedStyle
+	ci.TextStyle = focusedStyle
+	// ci.SetValue("cac4a1fe-0559-423e-97d6-f4a24f8d98cf")
+	return ci
+}
+
+func newAfterDateInput(after time.Time) textinput.Model {
+	ai := textinput.NewModel()
+	ai.Placeholder = "After(yyyy-mm-dd)"
+	ai.CursorStyle = cursorStyle
+	ai.CharLimit = 19
+	ai.Width = 19
+	ai.SetValue(after.Format("2006-01-02 15:04:05"))
+	return ai
+}
+
+func newBeforeDateInput(before time.Time) textinput.Model {
+	bi := textinput.NewModel()
+	bi.Placeholder = "Before(yyyy-mm-dd)"
+	bi.CursorStyle = cursorStyle
+	bi.CharLimit = 19
+	bi.Width = 19
+	bi.SetValue(before.Format("2006-01-02 15:04:05"))
+	return bi
+}

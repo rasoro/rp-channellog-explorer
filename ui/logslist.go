@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -35,7 +36,18 @@ func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 				log.Fatal(ok)
 				return m, tea.Quit
 			}
-			m.viewport.SetContent(content[m.logList.Index()].Response.String)
+			request := content[m.logList.Index()].Request.String
+			response := content[m.logList.Index()].Response.String
+			requestFmtd, err := FormatRequestResponse(request)
+			if err != nil {
+				requestFmtd = err.Error()
+			}
+			responseFmtd, err := FormatRequestResponse(response)
+			if err != nil {
+				responseFmtd = err.Error()
+			}
+			ctt := fmt.Sprintf("%s\n\n%s", requestFmtd, responseFmtd)
+			m.viewport.SetContent(ctt)
 			return m, textinput.Blink
 		}
 	case tea.WindowSizeMsg:
