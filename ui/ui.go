@@ -187,7 +187,8 @@ func (m model) View() string {
 			)
 		} else {
 			b.WriteString(
-				m.viewport.View(),
+				m.inspectContent,
+				// m.viewport.View(),
 			)
 		}
 	} else {

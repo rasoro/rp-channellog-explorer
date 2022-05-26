@@ -23,13 +23,13 @@ func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
+		switch msg.String() {
+		case "ctrl+c":
 			return m, tea.Quit
-		case tea.KeyCtrlP:
+		case "ctrl+p":
 			m.state = PromptParams
 			return m, textinput.Blink
-		case tea.KeyEnter:
+		case "enter":
 			m.state = Inspecting
 			content, ok := logData.([]db.ChannelsChannellog)
 			if !ok {
@@ -38,18 +38,18 @@ func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 			}
 			request := content[m.logList.Index()].Request.String
 			response := content[m.logList.Index()].Response.String
-			requestFmtd, err := FormatRequestResponse(request)
+			requestFmtd, err := FormatRequestResponse4(request)
 			if err != nil {
-				requestFmtd = err.Error()
+				requestFmtd = request
 			}
-			responseFmtd, err := FormatRequestResponse(response)
+			responseFmtd, err := FormatRequestResponse4(response)
 			if err != nil {
-				responseFmtd = err.Error()
+				responseFmtd = response
 			}
 			ctt := fmt.Sprintf("%s\n\n%s", requestFmtd, responseFmtd)
 			m.inspectContent = ctt
 			m.viewport.SetContent(m.inspectContent)
-			return m, textinput.Blink
+			return m, tea.Batch(textinput.Blink /*, viewport.Sync(m.viewport)*/)
 		}
 	case tea.WindowSizeMsg:
 		h, v := components.DocListStyle.GetFrameSize()

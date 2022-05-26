@@ -24,9 +24,10 @@ var (
 	helpStyle           = blurredStyle.Copy()
 	cursorModeHelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 
-	focusedButton = focusedStyle.Copy().Render("[ Submit ]")
-	blurredButton = fmt.Sprintf("[ %s ]", blurredStyle.Render("Submit"))
-	void          = ""
+	focusedButton = focusedStyle.Copy().Render(" Submit ")
+	blurredButton = fmt.Sprintf(" %s ", noStyle.Render("Submit"))
+
+	void = ""
 )
 
 func updateInputParams(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
@@ -90,8 +91,8 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	m.searchSpinner, cmd = m.searchSpinner.Update(msg)
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
+		switch msg.String() {
+		case "ctrl+c":
 			return m, tea.Quit
 		}
 	}
@@ -100,7 +101,7 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	case searchInit:
 		m.searchingState = searchInProgress
 		go func(m model) {
-			time.Sleep(time.Second * 2)
+			// time.Sleep(time.Second * 2)
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			ch, err := m.db.GetChannel(ctx, m.paramInputs[0].Value())
@@ -132,21 +133,23 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 					} else {
 						marker = components.SuccessMark
 					}
-					items = append(items, item{
+					newItem := item{
 						desc: fmt.Sprintf(
 							"%s | %s",
 							createdOn,
 							cl.Description,
 						),
 						title: fmt.Sprintf(
-							"#%v %v - %v [%v] %v",
+							"#%v %v - ID:%v | %v | [%v] | %v",
 							i+1,
 							marker,
+							cl.ID,
 							cl.ResponseStatus.Int32,
 							cl.Method.String,
 							cl.Url.String,
 						),
-					})
+					}
+					items = append(items, newItem)
 				}
 				// m.logList = list.New(items, list.NewDefaultDelegate(), 0, 0)
 				m.logList.SetItems(items)
@@ -184,7 +187,8 @@ func newUUIDInput() textinput.Model {
 	ci.CursorStyle = cursorStyle
 	ci.PromptStyle = focusedStyle
 	ci.TextStyle = focusedStyle
-	ci.SetValue("b2abebe0-e8af-444c-9b8c-ccff91eb4ecc")
+	// ci.SetValue("b2abebe0-e8af-444c-9b8c-ccff91eb4ecc")
+	ci.SetValue("cac4a1fe-0559-423e-97d6-f4a24f8d98cf")
 	return ci
 }
 

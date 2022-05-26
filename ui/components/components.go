@@ -7,6 +7,7 @@ import (
 
 var (
 	highlight   = lipgloss.AdaptiveColor{Light: colors.Dark, Dark: colors.Light}
+	lowlight    = lipgloss.AdaptiveColor{Light: colors.Light, Dark: colors.Dark}
 	csuccess    = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}
 	cerrors     = lipgloss.AdaptiveColor{Light: "#bf4343", Dark: "#f57373"}
 	InputBorder = lipgloss.Border{
@@ -16,8 +17,8 @@ var (
 		Right:       "│",
 		TopLeft:     "╭",
 		TopRight:    "╮",
-		BottomLeft:  "└",
-		BottomRight: "┘",
+		BottomLeft:  "╰",
+		BottomRight: "╯",
 	}
 	InputStyle = lipgloss.NewStyle().
 			Border(InputBorder, true).
