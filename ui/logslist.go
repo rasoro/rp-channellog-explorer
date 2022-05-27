@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"fmt"
 	"log"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -36,19 +36,21 @@ func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 				log.Fatal(ok)
 				return m, tea.Quit
 			}
-			request := content[m.logList.Index()].Request.String
-			response := content[m.logList.Index()].Response.String
-			requestFmtd, err := FormatRequestResponse4(request)
-			if err != nil {
-				requestFmtd = request
-			}
-			responseFmtd, err := FormatRequestResponse4(response)
-			if err != nil {
-				responseFmtd = response
-			}
-			ctt := fmt.Sprintf("%s\n\n%s", requestFmtd, responseFmtd)
-			m.inspectContent = ctt
-			m.viewport.SetContent(m.inspectContent)
+			currentContent := content[m.logList.Index()]
+
+			m.currentLog = &currentContent
+
+			request := currentContent.Request.String
+			response := currentContent.Response.String
+
+			reqH, reqD := FormatRequestResponse(request)
+			reqHMap := trimMultilineString(reqH)
+			m.logContent.Request = Request{reqHMap, reqD}
+
+			resH, resD := FormatRequestResponse(response)
+			resHMap := trimMultilineString(resH)
+			m.logContent.Response = Response{resHMap, resD}
+
 			return m, tea.Batch(textinput.Blink /*, viewport.Sync(m.viewport)*/)
 		}
 	case tea.WindowSizeMsg:
@@ -60,4 +62,13 @@ func updateListing(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 
 	m.logList, cmd = m.logList.Update(msg)
 	return m, cmd
+}
+
+func trimMultilineString(in string) string {
+	inList := strings.Split(in, "\n")
+	var str string
+	for _, st := range inList {
+		str += strings.TrimSpace(st) + "\n"
+	}
+	return str
 }

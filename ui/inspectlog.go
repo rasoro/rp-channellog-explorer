@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -67,88 +66,31 @@ func updateInspecting(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func FormatRequestResponse2(r string) (string, error) {
-	breakLineIndex := strings.Index(r, "\n\n")
-	if breakLineIndex == -1 {
-		return r, nil
-	}
-	topContent := r[:breakLineIndex]
-	bottomContent := r[breakLineIndex:]
-	bottomFormated, err := JsonPrettyPrint(bottomContent)
-	if err != nil {
-		bcfmt, err := QueryPrettyPrint(bottomContent)
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("%s\n\n%s", topContent, bcfmt), nil
-	}
-	return fmt.Sprintf("%s\n\n%s", topContent, bottomFormated), nil
-}
-
-func FormatRequestResponse(r string) (string, error) {
-	// r = strings.ReplaceAll(r, `\u00e1`, "á")
-	contents := strings.Split(strings.TrimSpace(r), "\n\n")
-	var bottomContent string
-	var err error
-	if len(contents) > 1 {
-		cs := strings.TrimSpace(contents[1])
-		bottomContent, err = JsonPrettyPrint(cs)
-		if err != nil {
-			bottomContent, err = QueryPrettyPrint(cs)
-		}
-	}
-	return fmt.Sprintf("%s\n\n%s", contents[0], bottomContent), nil
-}
-
-func FormatRequestResponse3(r string) (string, error) {
-	rg, err := regexp.Compile(`[{\[]{1}([,:{}\[\]0-9.\-+Eaeflnr-u \n\r\t]|".*?")+[}\]]{1}`)
-	if err != nil {
-		log.Fatalf("Regex not valid: %v", err.Error())
-	}
-
-	jsonContent := rg.FindString(r)
-
-	if jsonContent == "" {
-		topContent := strings.Replace(r, jsonContent, "", 1)
-		botContent, _ := JsonPrettyPrint(jsonContent)
-
-		return fmt.Sprintf("%s\n\n%s", topContent, botContent), nil
-	} else {
-		contents := strings.Split(strings.TrimSpace(r), "\n\n")
-		var bottomContent string
-		if len(contents) > 1 {
-			cs := strings.TrimSpace(contents[1])
-			bottomContent, err = QueryPrettyPrint(cs)
-		}
-		return fmt.Sprintf("%s\n\n%s", contents[0], bottomContent), nil
-	}
-}
-
-func FormatRequestResponse4(r string) (string, error) {
+func FormatRequestResponse(r string) (string, string) {
 	if strings.Contains(r, "application/json") {
 		breakLineIndex := strings.Index(r, "\n{")
 		if breakLineIndex == -1 {
-			return r, nil
+			return r, ""
 		}
 		topContent := r[:breakLineIndex]
 		bottomContent := r[breakLineIndex:]
 		bottomFormated, err := JsonPrettyPrint(bottomContent)
 		if err != nil {
-			return fmt.Sprintf("%s\n\n%s", topContent, bottomContent), nil
+			return topContent, bottomContent
 		}
-		return fmt.Sprintf("%s\n\n%s", topContent, bottomFormated), nil
+		return topContent, bottomFormated
 	} else {
 		breakLineIndex := strings.Index(r, "\n\n")
 		if breakLineIndex == -1 {
-			return r, nil
+			return r, ""
 		}
 		topContent := r[:breakLineIndex]
 		bottomContent := r[breakLineIndex:]
 		bcfmt, err := QueryPrettyPrint(bottomContent)
 		if err != nil {
-			return fmt.Sprintf("%s\n\n%s", topContent, bottomContent), nil
+			return topContent, bottomContent
 		}
-		return fmt.Sprintf("%s\n\n%s", topContent, bcfmt), nil
+		return topContent, bcfmt
 	}
 }
 

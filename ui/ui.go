@@ -55,10 +55,27 @@ type model struct {
 	searchSpinner  spinner.Model
 	logList        list.Model
 	inspectContent string
+	logContent     LogContent
+	currentLog     *db.ChannelsChannellog
 	inspectReady   bool
 	viewport       viewport.Model
 	db             *db.Queries
 	err            error
+}
+
+type LogContent struct {
+	Request  Request  `json:"request"`
+	Response Response `json:"response"`
+}
+
+type Request struct {
+	Headers string `json:"headers"`
+	Data    string `json:"data"`
+}
+
+type Response struct {
+	Headers string `json:"headers"`
+	Data    string `json:"data"`
 }
 
 var logData interface{}
@@ -186,9 +203,49 @@ func (m model) View() string {
 				"\n  Initializing...",
 			)
 		} else {
+			width, _, _ := term.GetSize(int(os.Stdout.Fd()))
+
+			requestBar := components.HorizontalStatusBar(
+				width,
+				"REQUEST",
+				m.currentLog.Url.String,
+				m.currentLog.Method.String,
+				strings.TrimSpace(m.currentLog.Description),
+			)
 			b.WriteString(
-				m.inspectContent,
-				// m.viewport.View(),
+				requestBar,
+			)
+			b.WriteString(
+				lipgloss.NewStyle().Width(width).Render(
+					lipgloss.JoinVertical(lipgloss.Top,
+						components.DocListStyle.Render(
+							m.logContent.Request.Headers,
+						),
+						components.DocListStyle.Render(
+							m.logContent.Request.Data,
+						),
+					),
+				),
+			)
+			responseBar := components.HorizontalStatusBar(
+				width,
+				"RESPONSE",
+				m.currentLog.Url.String,
+				m.currentLog.Method.String,
+				fmt.Sprint(m.currentLog.ResponseStatus.Int32),
+			)
+			b.WriteString(responseBar)
+			b.WriteString(
+				lipgloss.NewStyle().Width(width).Render(
+					lipgloss.JoinVertical(lipgloss.Top,
+						components.DocListStyle.Render(
+							m.logContent.Response.Headers,
+						),
+						components.DocListStyle.Render(
+							m.logContent.Response.Data,
+						),
+					),
+				),
 			)
 		}
 	} else {
