@@ -72,3 +72,12 @@ func trimMultilineString(in string) string {
 	}
 	return str
 }
+
+func listingView(m model) string {
+	searchForm = buildSearchFormPanel(m)
+	return lipgloss.JoinVertical(
+		lipgloss.Top,
+		components.DocListStyle.Render(searchForm),
+		components.DocListStyle.Render(m.logList.View()),
+	)
+}

@@ -11,6 +11,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/rasoro/rp-channellog-explorer/ui/components"
 	"golang.org/x/term"
 )
 
@@ -66,6 +68,62 @@ func updateInspecting(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func inspectLogView(m model) string {
+	var b strings.Builder
+	if !m.inspectReady {
+		b.WriteString(
+			"\n  Initializing...",
+		)
+	} else {
+		width, _, _ := term.GetSize(int(os.Stdout.Fd()))
+
+		requestBar := components.HorizontalStatusBar(
+			width,
+			"REQUEST",
+			m.currentLog.Url.String,
+			m.currentLog.Method.String,
+			strings.TrimSpace(m.currentLog.Description),
+		)
+		b.WriteString(
+			requestBar,
+		)
+		b.WriteString(
+			lipgloss.NewStyle().Width(width).Render(
+				lipgloss.JoinVertical(lipgloss.Top,
+					components.DocListStyle.Render(
+						m.logContent.Request.Headers,
+					),
+					components.DocListStyle.Render(
+						m.logContent.Request.Data,
+					),
+				),
+			),
+		)
+		responseBar := components.HorizontalStatusBar(
+			width,
+			"RESPONSE",
+			m.currentLog.Url.String,
+			m.currentLog.Method.String,
+			fmt.Sprint(m.currentLog.ResponseStatus.Int32),
+		)
+		b.WriteString(responseBar)
+		b.WriteString(
+			lipgloss.NewStyle().Width(width).Render(
+				lipgloss.JoinVertical(lipgloss.Top,
+					components.DocListStyle.Render(
+						m.logContent.Response.Headers,
+					),
+					components.DocListStyle.Render(
+						m.logContent.Response.Data,
+					),
+				),
+			),
+		)
+	}
+
+	return b.String()
+}
+
 func FormatRequestResponse(r string) (string, string) {
 	if strings.Contains(r, "application/json") {
 		breakLineIndex := strings.Index(r, "\n{")
@@ -110,4 +168,19 @@ func QueryPrettyPrint(in string) (string, error) {
 		out = out + fmt.Sprintf("%s = %s\n", k, v)
 	}
 	return out, nil
+}
+
+type LogContent struct {
+	Request  Request  `json:"request"`
+	Response Response `json:"response"`
+}
+
+type Request struct {
+	Headers string `json:"headers"`
+	Data    string `json:"data"`
+}
+
+type Response struct {
+	Headers string `json:"headers"`
+	Data    string `json:"data"`
 }

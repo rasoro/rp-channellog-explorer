@@ -1,10 +1,6 @@
 package ui
 
 import (
-	"fmt"
-	"log"
-	"os"
-	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -16,8 +12,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rasoro/rp-channellog-explorer/internal/db"
 	"github.com/rasoro/rp-channellog-explorer/ui/colors"
-	"github.com/rasoro/rp-channellog-explorer/ui/components"
-	"golang.org/x/term"
 )
 
 func NewProgram(dbq *db.Queries) *tea.Program {
@@ -61,21 +55,6 @@ type model struct {
 	viewport       viewport.Model
 	db             *db.Queries
 	err            error
-}
-
-type LogContent struct {
-	Request  Request  `json:"request"`
-	Response Response `json:"response"`
-}
-
-type Request struct {
-	Headers string `json:"headers"`
-	Data    string `json:"data"`
-}
-
-type Response struct {
-	Headers string `json:"headers"`
-	Data    string `json:"data"`
 }
 
 var logData interface{}
@@ -141,119 +120,19 @@ func (m model) View() string {
 	if m.err != nil {
 		return m.err.Error()
 	}
-	_, physicalHeight, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var b strings.Builder
-
-	button := &blurredButton
-	if m.focusIndex == len(m.paramInputs) {
-		button = &focusedButton
-	}
-
-	inputChannelUUID := components.InputStyle.Copy().Width(m.paramInputs[0].Width + 4).Render(m.paramInputs[0].View())
-	inputDateAfter := components.InputStyle.Render(m.paramInputs[1].View())
-	inputDateBefore := components.InputStyle.Render(m.paramInputs[2].View())
 
 	switch m.state {
 	case PromptParams:
-		searchForm = lipgloss.JoinHorizontal(
-			lipgloss.Center,
-			inputChannelUUID,
-			inputDateAfter,
-			inputDateBefore,
-			components.InputStyle.Render(*button),
-		)
+		return promptView(m)
 	case Searching:
-		searchForm = lipgloss.JoinHorizontal(
-			lipgloss.Center,
-			inputChannelUUID,
-			inputDateAfter,
-			inputDateBefore,
-			fmt.Sprintf("%s Searching", m.searchSpinner.View()),
-		)
+		return searchingView(m)
 	case Listing:
-		searchForm = lipgloss.JoinHorizontal(
-			lipgloss.Center,
-			inputChannelUUID,
-			inputDateAfter,
-			inputDateBefore,
-		)
+		return listingView(m)
 	case Inspecting:
-		searchForm = ""
+		return inspectLogView(m)
 	}
 
-	if m.state == Listing {
-		b.WriteString(
-			lipgloss.JoinHorizontal(
-				lipgloss.Left,
-				lipgloss.JoinVertical(
-					lipgloss.Top,
-					components.DocListStyle.Render(searchForm),
-					components.DocListStyle.Render(m.logList.View()),
-				),
-			),
-		)
-		return b.String()
-	} else if m.state == Inspecting {
-		if !m.inspectReady {
-			b.WriteString(
-				"\n  Initializing...",
-			)
-		} else {
-			width, _, _ := term.GetSize(int(os.Stdout.Fd()))
-
-			requestBar := components.HorizontalStatusBar(
-				width,
-				"REQUEST",
-				m.currentLog.Url.String,
-				m.currentLog.Method.String,
-				strings.TrimSpace(m.currentLog.Description),
-			)
-			b.WriteString(
-				requestBar,
-			)
-			b.WriteString(
-				lipgloss.NewStyle().Width(width).Render(
-					lipgloss.JoinVertical(lipgloss.Top,
-						components.DocListStyle.Render(
-							m.logContent.Request.Headers,
-						),
-						components.DocListStyle.Render(
-							m.logContent.Request.Data,
-						),
-					),
-				),
-			)
-			responseBar := components.HorizontalStatusBar(
-				width,
-				"RESPONSE",
-				m.currentLog.Url.String,
-				m.currentLog.Method.String,
-				fmt.Sprint(m.currentLog.ResponseStatus.Int32),
-			)
-			b.WriteString(responseBar)
-			b.WriteString(
-				lipgloss.NewStyle().Width(width).Render(
-					lipgloss.JoinVertical(lipgloss.Top,
-						components.DocListStyle.Render(
-							m.logContent.Response.Headers,
-						),
-						components.DocListStyle.Render(
-							m.logContent.Response.Data,
-						),
-					),
-				),
-			)
-		}
-	} else {
-		b.WriteString(components.DocListStyle.Render(searchForm))
-		b.WriteString(strings.Repeat("\n", physicalHeight-lipgloss.Height(b.String())-1))
-		b.WriteString(helpStyle.Render(" ctrl+c to quit"))
-	}
-	return b.String()
+	return ""
 }
 
 func TruncateString(str string, length int) string {

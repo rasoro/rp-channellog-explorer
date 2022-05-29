@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -210,4 +211,69 @@ func newBeforeDateInput(before time.Time) textinput.Model {
 	bi.Width = 19
 	bi.SetValue(before.Format("2006-01-02 15:04:05"))
 	return bi
+}
+
+func buildSearchFormPanel(m model) string {
+
+	button := &blurredButton
+	if m.focusIndex == len(m.paramInputs) {
+		button = &focusedButton
+	}
+
+	inputChannelUUID := components.InputStyle.Copy().Width(m.paramInputs[0].Width + 4).Render(m.paramInputs[0].View())
+	inputDateAfter := components.InputStyle.Render(m.paramInputs[1].View())
+	inputDateBefore := components.InputStyle.Render(m.paramInputs[2].View())
+
+	switch m.state {
+	case PromptParams:
+		return lipgloss.JoinHorizontal(
+			lipgloss.Center,
+			inputChannelUUID,
+			inputDateAfter,
+			inputDateBefore,
+			components.InputStyle.Render(*button),
+		)
+	case Searching:
+		return lipgloss.JoinHorizontal(
+			lipgloss.Center,
+			inputChannelUUID,
+			inputDateAfter,
+			inputDateBefore,
+			fmt.Sprintf("%s Searching", m.searchSpinner.View()),
+		)
+	case Listing:
+		return lipgloss.JoinHorizontal(
+			lipgloss.Center,
+			inputChannelUUID,
+			inputDateAfter,
+			inputDateBefore,
+		)
+	}
+	return ""
+}
+
+func promptView(m model) string {
+	_, physicalHeight, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		log.Fatal(err)
+	}
+	var b strings.Builder
+	searchForm = buildSearchFormPanel(m)
+	b.WriteString(components.DocListStyle.Render(searchForm))
+	b.WriteString(strings.Repeat("\n", physicalHeight-lipgloss.Height(b.String())-1))
+	b.WriteString(helpStyle.Render(" ctrl+c to quit"))
+	return b.String()
+}
+
+func searchingView(m model) string {
+	_, physicalHeight, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		log.Fatal(err)
+	}
+	var b strings.Builder
+	searchForm = buildSearchFormPanel(m)
+	b.WriteString(components.DocListStyle.Render(searchForm))
+	b.WriteString(strings.Repeat("\n", physicalHeight-lipgloss.Height(b.String())-1))
+	b.WriteString(helpStyle.Render(" ctrl+c to quit"))
+	return b.String()
 }
