@@ -85,8 +85,8 @@ func initialModel(db *db.Queries) model {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Primary))
 
 	logList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
-	logList.Title = "Channel Logs"
 	logList.SetShowHelp(false)
+	logList.DisableQuitKeybindings()
 
 	return model{
 		paramInputs:   paramInputs,
@@ -129,7 +129,8 @@ func (m model) View() string {
 	case Listing:
 		return listingView(m)
 	case Inspecting:
-		return inspectLogView(m)
+		// return inspectLogView(m)
+		return m.viewport.View()
 	}
 
 	return ""

@@ -29,14 +29,16 @@ func updateInspecting(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyEsc:
 			m.state = Listing
+			m.inspectReady = false
 			return m, nil
 		}
 	case tea.WindowSizeMsg:
 		if !m.inspectReady {
 			m.viewport = viewport.New(msg.Width, msg.Height)
+			m.viewport.MouseWheelDelta = 9
 			m.viewport.YPosition = 0
 			m.viewport.HighPerformanceRendering = useHighPerformanceRender
-			m.viewport.SetContent(m.inspectContent)
+			m.viewport.SetContent(inspectLogView(m))
 			m.inspectReady = true
 		} else {
 			m.viewport.Width = msg.Width
@@ -54,9 +56,10 @@ func updateInspecting(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 			log.Fatal(err)
 		}
 		m.viewport = viewport.New(physicalWidth, physicalHeight)
+		m.viewport.MouseWheelDelta = 9
 		m.viewport.YPosition = 0
 		m.viewport.HighPerformanceRendering = useHighPerformanceRender
-		m.viewport.SetContent(m.inspectContent)
+		m.viewport.SetContent(inspectLogView(m))
 		m.inspectReady = true
 		if useHighPerformanceRender {
 			cmds = append(cmds, viewport.Sync(m.viewport))
@@ -70,56 +73,50 @@ func updateInspecting(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 
 func inspectLogView(m model) string {
 	var b strings.Builder
-	if !m.inspectReady {
-		b.WriteString(
-			"\n  Initializing...",
-		)
-	} else {
-		width, _, _ := term.GetSize(int(os.Stdout.Fd()))
+	width, _, _ := term.GetSize(int(os.Stdout.Fd()))
 
-		requestBar := components.HorizontalStatusBar(
-			width,
-			"REQUEST",
-			m.currentLog.Url.String,
-			m.currentLog.Method.String,
-			strings.TrimSpace(m.currentLog.Description),
-		)
-		b.WriteString(
-			requestBar,
-		)
-		b.WriteString(
-			lipgloss.NewStyle().Width(width).Render(
-				lipgloss.JoinVertical(lipgloss.Top,
-					components.DocListStyle.Render(
-						m.logContent.Request.Headers,
-					),
-					components.DocListStyle.Render(
-						m.logContent.Request.Data,
-					),
+	requestBar := components.HorizontalStatusBar(
+		width,
+		"REQUEST",
+		m.currentLog.Url.String,
+		m.currentLog.Method.String,
+		strings.TrimSpace(m.currentLog.Description),
+	)
+	b.WriteString(
+		requestBar,
+	)
+	b.WriteString(
+		lipgloss.NewStyle().Width(width).Render(
+			lipgloss.JoinVertical(lipgloss.Top,
+				components.DocListStyle.Render(
+					m.logContent.Request.Headers,
+				),
+				components.DocListStyle.Render(
+					m.logContent.Request.Data,
 				),
 			),
-		)
-		responseBar := components.HorizontalStatusBar(
-			width,
-			"RESPONSE",
-			m.currentLog.Url.String,
-			m.currentLog.Method.String,
-			fmt.Sprint(m.currentLog.ResponseStatus.Int32),
-		)
-		b.WriteString(responseBar)
-		b.WriteString(
-			lipgloss.NewStyle().Width(width).Render(
-				lipgloss.JoinVertical(lipgloss.Top,
-					components.DocListStyle.Render(
-						m.logContent.Response.Headers,
-					),
-					components.DocListStyle.Render(
-						m.logContent.Response.Data,
-					),
+		),
+	)
+	responseBar := components.HorizontalStatusBar(
+		width,
+		"RESPONSE",
+		m.currentLog.Url.String,
+		m.currentLog.Method.String,
+		fmt.Sprint(m.currentLog.ResponseStatus.Int32),
+	)
+	b.WriteString(responseBar)
+	b.WriteString(
+		lipgloss.NewStyle().Width(width).Render(
+			lipgloss.JoinVertical(lipgloss.Top,
+				components.DocListStyle.Render(
+					m.logContent.Response.Headers,
+				),
+				components.DocListStyle.Render(
+					m.logContent.Response.Data,
 				),
 			),
-		)
-	}
+		),
+	)
 
 	return b.String()
 }
