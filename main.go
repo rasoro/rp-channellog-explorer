@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 
@@ -11,14 +12,22 @@ import (
 	"github.com/rasoro/rp-channellog-explorer/ui"
 )
 
+var defaultdbdsn = "postgres://temba:temba@localhost:5432/temba?sslmode=disable"
+var dbdsnHelp = "The dsn to establish connection with the postgres database."
+var dbdsn *string
+
 func main() {
+	dbdsn = flag.String("db", defaultdbdsn, dbdsnHelp)
+
+	flag.Parse()
+
 	if err := execute(); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func execute() error {
-	dbConn, err := postgresql.NewPostgreSQL()
+	dbConn, err := postgresql.NewPostgreSQL(*dbdsn)
 	if err != nil {
 		log.Fatal(err)
 		return err

@@ -8,7 +8,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func NewPostgreSQL() (*sqlx.DB, error) {
+func NewPostgreSQL(dbdsn string) (*sqlx.DB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	dsn := "postgres://temba:temba@localhost:5432/temba?sslmode=disable"
