@@ -27,3 +27,9 @@ WHERE id=$1;
 SELECT id, description, is_error, url, "method", request, response, response_status, created_on, request_time, channel_id, connection_id, msg_id
 FROM public.channels_channellog
 WHERE channel_id=$1;
+
+-- name: GetChannelLogWithParams :many
+SELECT id, description, is_error, url, "method", request, response, response_status, created_on, request_time, channel_id, connection_id, msg_id
+FROM public.channels_channellog
+WHERE channel_id=$1 AND created_on >= sqlc.arg(after) AND created_on <= sqlc.arg(before)
+ORDER BY created_on;

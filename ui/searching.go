@@ -101,6 +101,7 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	switch m.searchingState {
 	case searchInit:
 		m.searchingState = searchInProgress
+		m.err = nil
 		go func(m model) {
 			// time.Sleep(time.Second * 2)
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -111,7 +112,17 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 				return
 			}
 			selectedChannel = ch
-			clogs, err := m.db.GetChannelLogFromChannelID(ctx, ch.ID)
+
+			after, _ := time.Parse("2006-01-02 15:04:05", m.paramInputs[1].Value())
+			before, _ := time.Parse("2006-01-02 15:04:05", m.paramInputs[2].Value())
+
+			args := db.GetChannelLogWithParamsParams{
+				ChannelID: ch.ID,
+				After:     after,
+				Before:    before,
+			}
+
+			clogs, err := m.db.GetChannelLogWithParams(ctx, args)
 			if err != nil {
 				logData = fmt.Errorf("Error to get channel logs: %s", err)
 				return
@@ -123,7 +134,10 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 			switch logData.(type) {
 			case error:
 				m.searchingState = searchErrored
-				log.Fatal(logData)
+				// log.Fatal(logData)
+				m.err = logData.(error)
+				logData = nil
+				return m, cmd
 			case []db.ChannelsChannellog:
 				items := []list.Item{}
 				for i, cl := range logData.([]db.ChannelsChannellog) {
@@ -174,7 +188,7 @@ func updateSearching(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 	case searchErrored:
 		// TODO: show error message
 		m.state = PromptParams
-		return m, nil
+		return m, cmd
 	}
 	return m, cmd
 }
@@ -253,15 +267,27 @@ func buildSearchFormPanel(m model) string {
 }
 
 func promptView(m model) string {
-	_, physicalHeight, err := term.GetSize(int(os.Stdout.Fd()))
+	physicalWidth, physicalHeight, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
 		log.Fatal(err)
 	}
 	var b strings.Builder
 	searchForm = buildSearchFormPanel(m)
 	b.WriteString(components.DocListStyle.Render(searchForm))
+	b.WriteString("\n")
+	if m.err != nil {
+		b.WriteString(
+			lipgloss.NewStyle().
+				Width(physicalWidth).
+				Align(lipgloss.Center).Render(m.err.Error()),
+		)
+	}
 	b.WriteString(strings.Repeat("\n", physicalHeight-lipgloss.Height(b.String())-1))
-	b.WriteString(helpStyle.Render(" ctrl+c to quit"))
+	b.WriteString("  ")
+	b.WriteString(cursorModeHelpStyle.Render("ctrl+c ") + helpStyle.Render("to quit • "))
+	b.WriteString(cursorModeHelpStyle.Render("tab ") + helpStyle.Render("next input • "))
+	b.WriteString(cursorModeHelpStyle.Render("shift+tab ") + helpStyle.Render("previous input • "))
+	b.WriteString(cursorModeHelpStyle.Render("enter ") + helpStyle.Render("submit search"))
 	return b.String()
 }
 

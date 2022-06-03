@@ -29,7 +29,7 @@ func main() {
 func execute() error {
 	dbConn, err := postgresql.NewPostgreSQL(*dbdsn)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Errorf("failed to connect to database: %s", err))
 		return err
 	}
 

@@ -68,8 +68,9 @@ var (
 func initialModel(db *db.Queries) model {
 	paramInputs := make([]textinput.Model, 0)
 
-	after := time.Date(2022, time.Month(1), 1, 0, 0, 0, 0, time.UTC)
 	before := time.Now()
+	// after := time.Date(2022, time.Month(1), 1, 0, 0, 0, 0, time.UTC)
+	after := time.Date(before.Year(), before.Month(), before.Day(), 0, 0, 0, 0, time.UTC)
 
 	ci := newUUIDInput()
 	paramInputs = append(paramInputs, ci)
@@ -85,7 +86,7 @@ func initialModel(db *db.Queries) model {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Primary))
 
 	logList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
-	logList.SetShowHelp(false)
+	// logList.SetShowHelp(false)
 	logList.DisableQuitKeybindings()
 
 	return model{
@@ -117,9 +118,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	if m.err != nil {
-		return m.err.Error()
-	}
+	// if m.err != nil {
+	// 	return m.err.Error()
+	// }
 
 	switch m.state {
 	case PromptParams:
